@@ -1,41 +1,53 @@
-[BITS 16]	;Tells the assembler that its a 16 bit code
-[ORG 0x7C00]	;Origin, tell the assembler that where the code will
-				;be in memory after it is been loaded
+[BITS 16]
+;; [ORG 0x9000] ;; Boot Loader starting load address
 
 Start:
 	cli					; Clear all Interrupts
-	
-	MOV AL, 0x46    ; Print the character "f"
-	call printChar
 
-	MOV AL, 'Z'    ; Print the character "0"
-	call printChar
+	mov	ax, 0x07c0
+	mov	ds,ax
+	mov	ax,0x9000
+	mov	es,ax
+	mov	cx,256
+	xor	si,si
+	xor	di,di
+	rep	movsw
+	jmp  far [0x9000 + go]
 
+go:
 	MOV SI, strWelcome
 	call printStr
+
+	MOV SI, strPrompt
+	call printStr
+
+	
+	promptHandler:
+		MOV AH, 0x00
+		INT 0x16
+		CMP AL, 0x0D
+		JE returnHandler
+		call printChar
+		
+		JMP promptHandler
+	
+	returnHandler:
+		MOV SI, strCRLF
+		call printStr
+		MOV SI, strEnter
+		call printStr
+		MOV SI, strCRLF
+		call printStr
+		JMP promptHandler
 	
 	hlt					; halt the system
 
-	; 
-	printChar:
-		MOV AH, 0x0E	;Tell BIOS that we need to print one character on screen.
-		MOV BH, 0x00	;Page no.
-		MOV BL, 0x07	;Text attribute 0x07 is light grey font on black background
-		INT 0x10
-		RET
+	%include "printFunctions.asm"
 	
-	printStr:
-		nextChar:
-			MOV AL, [SI]
-			INC SI
-			OR  AL, AL
-			JZ exitFunc
-			call printChar
-			JMP nextChar
-		exitFunc:
-		RET
-		
-	strWelcome db 'this is so',13,10,'me text',0
+	strWelcome db 'Begin OS Boot Process',10,13,0
+	strPrompt db 'TimOS> ',0
+	strEnter db 'You pressed enter',0
+	strCRLF db 10,13,0
 	
 	times 510 - ($-$$) db 0				; We have to be 512 bytes. Clear the rest of the bytes with 0
 
